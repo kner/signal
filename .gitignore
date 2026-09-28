@@ -1,0 +1,9 @@
+
+# Python build caches
+__pycache__/
+*.py[cod]
+*.jsonl
+*.json
+/export/*/
+/homepage/dist/*/
+

@@ -1,0 +1,32 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const source=fs.readFileSync(require('node:path').join(__dirname,'../dist/app.js'),'utf8');
+const values=new Map();
+const localStorage={getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};
+function session(){
+ const context={localStorage,showAllMessages:false,el:()=>({setAttribute(){}}),$:()=>({scrollTop:40}),renderChats(){},renderMessages(){}};
+ vm.createContext(context);
+ vm.runInContext(source.slice(source.indexOf('const hiddenPrefix='),source.indexOf('function renderChats()')),context);
+ return context;
+}
+const a={archiveId:'first',text:'Original'},b={archiveId:'second',text:'Second'};
+const chat={id:'one',messages:[a,b]},other={id:'two',messages:[a]};
+let c=session();
+c.visibilityButton(chat,a).onclick();
+assert.equal(c.visibleMessages(chat).length,1);
+assert.equal(c.visibleMessages(other).length,1);
+assert.equal(chat.messages.length,2);
+assert.equal(a.text,'Original');
+c=session();
+assert.equal(c.visibleMessages(chat)[0],b,'hidden after reload');
+c.showAllMessages=true;
+assert.equal(c.visibleMessages(chat).length,2);
+c.visibilityButton(chat,a).onclick();
+c=session();
+assert.equal(c.visibleMessages(chat).length,2,'restoration persists');
+localStorage.setItem=()=>{throw Error('Quota exceeded')};
+c.visibilityButton(chat,a).onclick();
+assert.equal(c.isHidden(chat,a),false,'failed storage does not hide');
+assert.match(vm.runInContext('storageWarning',c),/nicht gespeichert/);
+console.log('Passed: persistence, defaults, restore, chat isolation, unchanged originals and failed storage.');
